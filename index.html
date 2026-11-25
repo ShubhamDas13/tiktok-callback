@@ -26,9 +26,23 @@
 </main>
 <script>
   // TikTok requires an https redirect URI, so it sends you here first. This page forwards the
-  // ?code=...&state=... to the dashboard running on your own computer. It stores nothing.
-  var DASHBOARD = "http://127.0.0.1:5050/oauth/tiktok/callback";
+  // ?code=...&state=... to the AutoVid dashboard that started the login. The dashboard's address is carried
+  // in `state` ("<random>.<base64url address>"). It only ever forwards to addresses on your own computer or
+  // home network, never to a public website. It stores nothing.
+  function dashboardFromState(state) {
+    try {
+      var part = (state || "").split(".").pop().replace(/-/g, "+").replace(/_/g, "/");
+      while (part.length % 4) part += "=";
+      var u = new URL(atob(part));
+      var h = u.hostname;
+      var local = h === "localhost" || h === "127.0.0.1" || /\.local$/.test(h) ||
+        /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+      if ((u.protocol === "http:" || u.protocol === "https:") && local) return u.origin;
+    } catch (e) {}
+    return "http://127.0.0.1:5050";
+  }
   var q = location.search;
+  var DASHBOARD = dashboardFromState(new URLSearchParams(q).get("state")) + "/oauth/tiktok/callback";
   document.getElementById("url").textContent = location.href;
   document.getElementById("copy").onclick = function () { navigator.clipboard && navigator.clipboard.writeText(location.href); this.textContent = "Copied"; };
   if (/[?&](code|error)=/.test(q)) {
